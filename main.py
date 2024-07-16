@@ -1,4 +1,5 @@
 import os
+import glob
 import random
 import json
 import requests
@@ -43,6 +44,13 @@ class Song:
     play_count: int
     skip_count: int
 
+# fix_tag_for(string: filepath)
+# Takes in a .mp3 filepath ie "./Scarlet Fire.mp3" or 
+# "/home/<user>/Music/311/Come Original.mp3" and attempts to lookup and correct 
+# ID3 tags. Song Title and Artist must be present to preform the search. BPM is 
+# analyzed and added. The 'song.clear()' is destructive of all existing tags 
+# including album art 
+
 def fix_tag_for(filepath):
     # Load file and read tags
     song = eyed3.load(filepath).tag
@@ -52,8 +60,8 @@ def fix_tag_for(filepath):
         return
     # Use BPM Analyzer to add BPM
     bpm = analyze_bpm(filepath)
-    # Display correction block
 
+    # Prompt user on correctness
     ti.title(f"{filepath}")
     ti.inform("Title", f"{song.title}")
     ti.inform("Artist", f"{song.artist}")
@@ -67,7 +75,7 @@ def fix_tag_for(filepath):
 
     confirmation = input("\nConfirm and write? (y or [Enter]/n)")
     if confirmation == 'n' or confirmation == 'N':
-        pass
+        return
     else:
         song.clear()
         song.title = new_tags.title
@@ -81,33 +89,18 @@ def fix_tag_for(filepath):
         song.bpm = new_tags.bpm
         song.save()
 
-def get_test_library():
-    songs = []
-    with open("test_library.json", 'r') as f:
-        data = json.load(f)
-        for song_id3 in data['library']:
-            song = Song(
-                file_path=song_id3.get('file_path', ''),
-                title=song_id3['title'],
-                artist=song_id3['artist'],
-                album=song_id3['album'],
-                genre=song_id3['genre'],
-                subgenre=song_id3.get('subgenre', []),
-                track=song_id3['track'],
-                release_year=song_id3['release_year'],
-                bpm=song_id3['bpm'],
-                play_count=song_id3['play_count'],
-                skip_count=song_id3['skip_count']
-            )
-            songs.append(song)
-        return songs
-
+# get_songs_album(string: title)
+# TODO
 def get_songs_album(title):
     pass#print(title)
 
+# get_songs_chunk(TODO)
+# TODO
 def get_songs_chunk(thing):
     pass#print(thing)
 
+# get_bellcurved_chunk_quantity()
+# Randomize the number of songs that fit in the defined chunk
 def get_bellcurved_chunk_quantity():
     percent = random.randint(1,51)
     logging.debug(f"bellcurve random: {percent}/50")
@@ -119,6 +112,9 @@ def get_bellcurved_chunk_quantity():
       case _:
           return 3
 
+# thinking_animation()
+# Display a spining bar while waiting on the BPM analyzer, this is handled 
+# by a second thread
 def thinking_animation():
     global animate
     frames = ['-', '\\', '|', '/']
@@ -128,22 +124,32 @@ def thinking_animation():
         current_frame = (current_frame + 1) % 4
         time.sleep(0.5)
 
-def analyze_bpm(file_path):
+# analyze_bpm(string: filepath) -> int
+# Uses the same filepath as the ID3 lookup, also clears away the thinking 
+# animation text before returning the found value
+def analyze_bpm(filepath):
     global animate
     animate = True
     animation = threading.Thread(target=thinking_animation)
     animation.start()
-    y, sr = librosa.load(file_path)
+    y, sr = librosa.load(filepath)
     bpm, _ = librosa.beat.beat_track(y=y, sr=sr)
     animate = False
     print("                    ", end='\r')
     return int(bpm)
 
+# fetch_tags(string: artist, string: title)
+# Takes in the artist and song title to search musicbrainz.org
+# Search each release in each recording until a proper album is found. Known issue 
+# is that this will never return a compilation album, so in the event of needing 
+# that, a more manual search outside this program must be used and corrected for 
+# in the fix_tags_for(). This also doesn't worry about the differences between say 
+# a USA release compared to a Brazil, or Japanese release.
 def fetch_tags(artist, title):
-    print(f"Finding {title} by {artist}:")
-    #result = mb.search_recordings(artist=artist, recording=title)
+    print(f"Finding '{title}' by '{artist}'...")
+    
     url = f"https://musicbrainz.org/ws/2/recording/?query=artist:'{artist}' AND record:'{title}'&fmt=json"
-    headers = {'User-Agent': 'dewey-decibel/0.1 ( nospam@me.com )'}
+    headers = {'User-Agent': 'dewey-decibel/1.0 ( nospam@me.com )'}
     response = requests.get(url, headers=headers)
     result = response.json()
     
@@ -174,13 +180,12 @@ def fetch_tags(artist, title):
                                     play_count=0,
                                     skip_count=0
                                    )
-                    #pprint(new_tags)
+                    
                     return new_tags
-                    #print(f" - Good find: date({release_date}) and track({track}) released on {album_title}")
             except Exception as e:
-                print("why though? ",e)
+                print("Error ",e)
     pprint(result)
-    print("No match found, showing result above")
+    print("No match found, showing raw result of the search above")
     return "error"
 
 def main():
@@ -195,17 +200,15 @@ def main():
                         default=None)
 
     args = parser.parse_args()
-    pprint(args)
+    if args.fix_folder != None:
+        for file in glob.glob(os.path.join(args.fix_folder,"*.mp3")):
+            fix_tag_for(file)
 
 if __name__ == "__main__":
-    playlist = []
+    main()
+    """playlist = []
     library = get_test_library()
 
-    #print(analyze_bpm("Curl of the Burl.mp3"))
-    #fetch_tags("bad info", "will fail")
-    #fetch_tags("Gorillaz", "clint eastwood")
-    #fetch_tags("Hath", "kenosis")
-    #fetch_tags("tribulation", "leviathans")
     fix_tag_for("./Renegade One.mp3")
 
 
@@ -223,4 +226,4 @@ if __name__ == "__main__":
         playlist = get_songs_album(vibe)
     else:
         vibe_filtered_library = [song for song in library if getattr(song, trait) == vibe]
-        playlist = get_songs_chunk(vibe_filtered_library)
+        playlist = get_songs_chunk(vibe_filtered_library)"""
