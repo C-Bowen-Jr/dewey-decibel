@@ -44,4 +44,5 @@ def prompt(question, answer=''):
         print(f"{clr.CURSNEXT}"*(len(question) + 2 + len(new_answer)), end='')
         print(" "*erase_extra)
 
+    print(f"{clr.END}", end='')
     return new_answer
