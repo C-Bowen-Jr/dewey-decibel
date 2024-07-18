@@ -5,7 +5,6 @@ import json
 import requests
 import threading
 import time
-import musicbrainzngs as mb
 from dataclasses import dataclass
 from typing import List
 from pprintpp import pprint
@@ -15,7 +14,6 @@ import logging
 import argparse
 import anhuelen as ti
 
-mb.set_useragent(app='dewey_decible', version='0.1', contact='nospam@me.com')
 animate = False
 
 class clr:
@@ -59,13 +57,13 @@ def fix_tag_for(filepath):
     if new_tags == "error":
         return
     # Use BPM Analyzer to add BPM
-    bpm = analyze_bpm(filepath)
+    new_tags.bpm = analyze_bpm(filepath)
 
     # Prompt user on correctness
     ti.title(f"{filepath}")
     ti.inform("Title", f"{song.title}")
     ti.inform("Artist", f"{song.artist}")
-    ti.inform("BPM", f"{bpm}")
+    ti.inform("BPM", f"{new_tags.bpm}")
     new_tags.album = ti.prompt("Album", f"{new_tags.album}")
     new_tags.track = ti.prompt("Track",f"{new_tags.track}")
     new_tags.genre = ti.prompt("Genre", f"{song.genre}")
