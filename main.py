@@ -159,9 +159,10 @@ def fetch_tags(artist, title):
                 primary_type = release.get('release-group','').get('primary-type','')
                 medium = release.get('media','')[0].get('format','')
                 status = release.get('status','')
+                credit = release.get('artist-credit','')[0].get('name','')
 
-                if album_type == '' and primary_type == 'Album' and (medium == 'CD' or medium == 'Digital Media') and status == 'Official':
-                    release_date = release.get('release-events','')[0].get('date','')
+                if album_type == '' and primary_type == 'Album' and (medium == 'CD' or medium == 'Digital Media') and status == 'Official' and credit != 'Various Artists':
+                    release_date = recordings.get('first-release-date','')
                     area = release.get('release-events','')[0].get('area','').get('name','')
                     track = release.get('media','')[0].get('track','')[0].get('number','')
                     
