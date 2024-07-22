@@ -76,6 +76,7 @@ def fix_tag_for(filepath):
     # Load file and read tags
     song = eyed3.load(filepath).tag
     # Use Artist and Title search musicbrainz
+    ti.title(f"{filepath}")
     new_tags = fetch_tags(song.artist, song.title)
     if new_tags == "error":
         return
@@ -160,55 +161,110 @@ def analyze_bpm(filepath):
     return int(bpm)
 
 # fetch_tags(string: artist, string: title)
-# Takes in the artist and song title to search musicbrainz.org
-# Search each release in each recording until a proper album is found. Known issue 
-# is that this will never return a compilation album, so in the event of needing 
-# that, a more manual search outside this program must be used and corrected for 
-# in the fix_tags_for(). This also doesn't worry about the differences between say 
-# a USA release compared to a Brazil, or Japanese release.
+# Takes in the artist and song title to spass to get_potentials(). Then 
+# gives user interaction to select the most correct search result to be 
+# tweaked
 def fetch_tags(artist, title):
-    print(f"Finding '{title}' by '{artist}'...")
-    
+    print("\n")
+    potentials = get_potentials(artist, title)
+    if len(potentials) == 0:
+        print(f"Error: {title} by {artist} returned 0 viable matches")
+        return "error"
+        
+    # Buffer cursor 12 newlines down
+    print("\n"*12)
+    viewing = 0
+    chosen = -1
+    redraw = True
+    while chosen < 0:
+        if redraw:
+            print(f"{ti.clr.CURSUP}"*12, end='') # 12 newlines to reverse
+            for key, value in potentials[viewing].items():
+                print(f"{' '*48}\r", end='')
+                ti.inform(key, value)
+            print(f"[{(viewing + 1)}/{len(potentials)}] Arrow keys [<-/->] to cycle. [Enter] accept. [0] skip")
+            redraw = False
+            
+        pressed = getch()
+        
+        if pressed == 'right': # Right arrow, Next
+            viewing = (viewing + 1) % len(potentials)
+            redraw = True
+        if pressed == 'left': # Left arrow, Previous
+            viewing = (viewing - 1) % len(potentials)
+            redraw = True
+        if pressed == b'0':
+            print(f"Giving up on {title} by {artist}")
+            return "error"
+        if pressed == b'\n' or pressed == b'\r' or pressed == '\r': # Enter
+            chosen = viewing
+        if pressed == b'\x1a': # Ctlr + Z
+            exit()
+        
+    new_tags = Song(
+                    file_path='',
+                    title=potentials[chosen]["song"],
+                    artist=potentials[chosen]["artist"],
+                    album=potentials[chosen]["album"],
+                    genre='',
+                    subgenre=[],
+                    track=potentials[chosen]["track"],
+                    release_year=potentials[chosen]["first year"],
+                    bpm=0,
+                    play_count=0,
+                    skip_count=0
+                    )
+                    
+    return new_tags
+
+
+# get_potentials(string: artist, string: title)
+# Takes in the artist and song title to search musicbrainz.org
+# Search each release in each recording, filters things like Vinyls and
+# 'Now That's What I Call Music 394' like compilations, then returns 
+# the list
+
+def get_potentials(artist, title):
     url = f"https://musicbrainz.org/ws/2/recording/?query=artist:'{artist}' AND record:'{title}'&fmt=json"
     headers = {'User-Agent': 'dewey-decibel/1.0 ( nospam@me.com )'}
     response = requests.get(url, headers=headers)
     result = response.json()
+    potentials = []
     
     for recordings in result.get('recordings', ''):
+        confirm_artist     = recordings.get('artist-credit','')[0].get('name','')
+        confirm_song_title = recordings.get('title','')
+        confirm_score      = recordings.get('score','')
+        first_drop         = recordings.get('first-release-date','')
+        confirm_first_year = first_drop[:4] if len(first_drop) > 4 else first_drop
         for release in recordings.get('releases',''):
             try:
-                album_title = release.get('title', '')
-                album_type = release.get('release-group','').get('secondary-types','')
-                primary_type = release.get('release-group','').get('primary-type','')
-                medium = release.get('media','')[0].get('format','')
-                status = release.get('status','')
-                credit = release.get('artist-credit','')[0].get('name','')
-
-                if album_type == '' and primary_type == 'Album' and (medium == 'CD' or medium == 'Digital Media') and status == 'Official' and credit != 'Various Artists':
-                    release_date = recordings.get('first-release-date','')
-                    area = release.get('release-events','')[0].get('area','').get('name','')
-                    track = release.get('media','')[0].get('track','')[0].get('number','')
-                    
-                    new_tags = Song(
-                                    file_path='',
-                                    title=title,
-                                    artist=artist,
-                                    album=album_title,
-                                    genre='',
-                                    subgenre=[],
-                                    track=track,
-                                    release_year=release_date,
-                                    bpm=0,
-                                    play_count=0,
-                                    skip_count=0
-                                   )
-                    
-                    return new_tags
+                confirm_album          = release.get('title','')
+                confirm_status         = release.get('status','')
+                confirm_primary_type   = release.get('release-group','').get('primary-type','')
+                confirm_secondary_type = release.get('release-group','').get('secondary-type','')
+                confirm_medium         = release.get('media','')[0].get('format','')
+                confirm_track          = release.get('media','')[0].get('track','')[0].get('number','')
+                release_date           = release.get('release-group','').get('date','')
+                confirm_release_year   = release_date[:4] if len(release_date) > 4 else release_date
+                confirm_country        = release.get('release-events','')[0].get('area','').get('name','')
+            
+                if (confirm_medium == 'CD' or confirm_medium == 'Digital Media') and confirm_status == 'Official' and confirm_artist != 'Various Artists' and confirm_score > 89:
+                    potentials.append({
+                               "artist":         confirm_artist,
+                               "song":           confirm_song_title,
+                               "track":          confirm_track,
+                               "album":          confirm_album,
+                               "medium":         confirm_medium,
+                               "first year":     confirm_first_year,
+                               "release year":   confirm_release_year,
+                               "validity":       confirm_status,
+                               "primary type":   confirm_primary_type,
+                               "secondary type": confirm_secondary_type,
+                               "country":        confirm_country})
             except Exception as e:
-                print("Error ",e)
-    pprint(result)
-    print("No match found, showing raw result of the search above")
-    return "error"
+                pass
+    return potentials
 
 def main():
     parser = argparse.ArgumentParser()
