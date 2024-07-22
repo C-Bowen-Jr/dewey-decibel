@@ -197,11 +197,19 @@ def main():
                         help="Fix ID3 tag on specific song",
                         type=str,
                         default=None)
+    parser.add_argument('--get-bpm', '-b',
+                        help="Analyze specific song's BPM",
+                        type=str,
+                        default=None)
 
     args = parser.parse_args()
     if args.fix_folder != None:
         for file in glob.glob(os.path.join(args.fix_folder,"*.mp3")):
             fix_tag_for(file)
+    if args.fix_song != None:
+        fix_tag_for(arg.fix_song)
+    if args.get_bpm != None:
+        print(f"BPM: {analyze_bpm(args.get_bpm)}")
 
 if __name__ == "__main__":
     main()
