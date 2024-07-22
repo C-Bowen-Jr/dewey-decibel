@@ -5,6 +5,9 @@ import json
 import requests
 import threading
 import time
+import sys
+import tty
+import termios
 from dataclasses import dataclass
 from typing import List
 from pprintpp import pprint
@@ -41,6 +44,26 @@ class Song:
     bpm: int
     play_count: int
     skip_count: int
+
+# getch()
+# Captures key presses. Returns "right" or "left" instead if corresponding 
+# arrow key was pressed
+
+def getch():
+    fd = sys.stdin.fileno()
+    restore = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        ch = sys.stdin.read(1).encode()
+        if ch == b'\x1b': # arrow keys escape sequence
+            extra = sys.stdin.read(2).encode()
+            if extra == b'[C':
+                ch = "right"
+            elif extra == b'[D':
+                ch = "left"
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, restore)
+    return ch
 
 # fix_tag_for(string: filepath)
 # Takes in a .mp3 filepath ie "./Scarlet Fire.mp3" or 
