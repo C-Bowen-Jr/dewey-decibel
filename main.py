@@ -89,7 +89,7 @@ def fix_tag_for(filepath):
     ti.inform("BPM", f"{new_tags.bpm}")
     new_tags.album = ti.prompt("Album", f"{new_tags.album}")
     new_tags.track = ti.prompt("Track",f"{new_tags.track}")
-    new_tags.genre = ti.prompt("Genre", f"{song.genre}")
+    new_tags.genre = ti.prompt("Genre", f"{song.genre.name}")
     getsubgenres = ti.prompt("Subgenres (separate with comma)")
     new_tags.subgenre = getsubgenres.split(',')
     new_tags.release_year = ti.prompt("Release Year (YYYY)", f"{new_tags.release_year}")
