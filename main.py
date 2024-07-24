@@ -339,6 +339,14 @@ def main():
                         help="Analyze specific song's BPM",
                         type=str,
                         default=None)
+    parser.add_argument('--offline-folder', '-',
+                        help="Parse folder for .mp3 files to fix ID3 tags without musicbrainz",
+                        type=str,
+                        default=None)
+    parser.add_argument('--offline-song', '-l',
+                        help="Fix ID3 tag on specific song without musicbrainz",
+                        type=str,
+                        default=None)
 
     args = parser.parse_args()
     if args.fix_folder != None:
@@ -346,6 +354,12 @@ def main():
             fix_tag_for(file)
     if args.fix_song != None:
         fix_tag_for(arg.fix_song)
+
+    if args.offline_folder != None:
+        for file in glob.glob(os.path.join(args.offline_folder,"*.mp3")):
+            blind_fix_tag_for(file)
+    if args.offline_song != None:
+        blind_fix_tag_for(arg.offline_song)
     if args.get_bpm != None:
         print(f"BPM: {analyze_bpm(args.get_bpm)}")
 
