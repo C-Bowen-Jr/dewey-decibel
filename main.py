@@ -45,6 +45,19 @@ class Song:
     play_count: int
     skip_count: int
 
+    def __init__(self, filepath='',title='',artist='',album='',genre='',subgenre=[],track=0,year=1800,bpm=0,plays=0,skips=0):
+        self.file_path = filepath
+        self.title = title
+        self.artist = artist
+        self.album = album
+        self.genre = genre
+        self.subgenre = subgenre
+        self.track = track
+        self.release_year = year
+        self.bpm = bpm
+        self.play_count = plays
+        self.skip_count = skips
+
 # getch()
 # Captures key presses. Returns "right" or "left" instead if corresponding 
 # arrow key was pressed
@@ -80,6 +93,9 @@ def fix_tag_for(filepath):
     new_tags = fetch_tags(song.artist, song.title)
     if new_tags == "error":
         return
+    elif new_tags == None:
+        blind_fix_tag_for(filepath)
+        return
     # Use BPM Analyzer to add BPM
     new_tags.bpm = analyze_bpm(filepath)
 
@@ -110,6 +126,49 @@ def fix_tag_for(filepath):
         song.recording_date = new_tags.release_year
         song.bpm = new_tags.bpm
         song.save()
+
+# blind_fix_tag_for(string: filepath)
+# Takes in a .mp3 filepath ie "./Scarlet Fire.mp3" or 
+# "/home/<user>/Music/311/Come Original.mp3" but requests user to 
+# manually provide ID3 tags. It will process the BPM and try to 
+# suggest existing tags
+
+def blind_fix_tag_for(filepath):
+    # Load file and read tags
+    song = eyed3.load(filepath)
+    # Use Artist and Title search musicbrainz
+    ti.title(f"{filepath}")
+    new_tags = Song()
+    # Use BPM Analyzer to add BPM
+    new_tags.bpm = analyze_bpm(filepath)
+
+    # Prompt user on correctness
+    ti.title(f"{filepath}")
+    new_tags.title = ti.prompt("Title", f"{song.tag.title}")
+    new_tags.artist = ti.prompt("Artist", f"{song.tag.artist}")
+    ti.inform("BPM", f"{new_tags.bpm}")
+    new_tags.album = ti.prompt("Album", f"{song.tag.album}")
+    new_tags.track = ti.prompt("Track",f"{song.tag.track_num}")
+    new_tags.genre = ti.prompt("Genre", f"{song.tag.genre.name}")
+    getsubgenres = ti.prompt("Subgenres (separate with comma)")
+    new_tags.subgenre = getsubgenres.split(',')
+    new_tags.release_year = ti.prompt("Release Year (YYYY)", f"{song.tag.recording_date}")
+
+    confirmation = input("\nConfirm and write? (y or [Enter]/n)")
+    if confirmation == 'n' or confirmation == 'N':
+        return
+    else:
+        song.tag.clear()
+        song.tag.title = new_tags.title
+        song.tag.artist = new_tags.artist  
+        song.tag.album = new_tags.album
+        song.tag.genre = new_tags.genre
+        song.tag.comments.set(u"")
+        song.tag.comments[0].text = ",".join(new_tags.subgenre)
+        song.tag.track_num = new_tags.track
+        song.tag.recording_date = new_tags.release_year
+        song.tag.bpm = new_tags.bpm
+        song.tag.save()
 
 # get_songs_album(string: title)
 # TODO
