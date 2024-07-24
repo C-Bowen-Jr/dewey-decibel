@@ -58,6 +58,23 @@ class Song:
         self.play_count = plays
         self.skip_count = skips
 
+@dataclass
+class Potential:
+    artist: str
+    song: str
+    track: int
+    album: str
+    medium: str
+    first_year: str
+    release_year: str
+    validity: str
+    primary_type: str
+    secondary_type: str
+    country: str
+
+    def __hash__(self):
+        return hash((self.album, self.medium, self.release_year, self.country))
+
 # getch()
 # Captures key presses. Returns "right" or "left" instead if corresponding 
 # arrow key was pressed
@@ -261,17 +278,11 @@ def fetch_tags(artist, title):
             exit()
         
     new_tags = Song(
-                    file_path='',
-                    title=potentials[chosen]["song"],
-                    artist=potentials[chosen]["artist"],
-                    album=potentials[chosen]["album"],
-                    genre='',
-                    subgenre=[],
-                    track=potentials[chosen]["track"],
-                    release_year=potentials[chosen]["first year"],
-                    bpm=0,
-                    play_count=0,
-                    skip_count=0
+                    title=potentials[chosen].song,
+                    artist=potentials[chosen].artist,
+                    album=potentials[chosen].album,
+                    track=potentials[chosen]track,
+                    release_year=potentials[chosen].release_year,
                     )
                     
     return new_tags
@@ -309,21 +320,26 @@ def get_potentials(artist, title):
                 confirm_country        = release.get('release-events','')[0].get('area','').get('name','')
             
                 if (confirm_medium == 'CD' or confirm_medium == 'Digital Media') and confirm_status == 'Official' and confirm_artist != 'Various Artists' and confirm_score > 89:
-                    potentials.append({
-                               "artist":         confirm_artist,
-                               "song":           confirm_song_title,
-                               "track":          confirm_track,
-                               "album":          confirm_album,
-                               "medium":         confirm_medium,
-                               "first year":     confirm_first_year,
-                               "release year":   confirm_release_year,
-                               "validity":       confirm_status,
-                               "primary type":   confirm_primary_type,
-                               "secondary type": confirm_secondary_type,
-                               "country":        confirm_country})
+                    pot = Potential(
+                               artist =         confirm_artist,
+                               song =           confirm_song_title,
+                               track =          confirm_track,
+                               album =          confirm_album,
+                               medium =         confirm_medium,
+                               first_year =     confirm_first_year,
+                               release_year =   confirm_release_year,
+                               validity =       confirm_status,
+                               primary_type =   confirm_primary_type,
+                               secondary_type = confirm_secondary_type,
+                               country =        confirm_country)
             except Exception as e:
                 pass
-    return potentials
+    unique_potentials = list(set(potentials))
+    number_removed = len(potentials) - len(unique_potentials)
+    if number_removed > 0:
+        print(f"Removed {number_removed} near identicals")
+    unique_potentials.sort(key = lambda x : x.release_year)
+    return unique_potentials
 
 def main():
     parser = argparse.ArgumentParser()
